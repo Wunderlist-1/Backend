@@ -8,16 +8,15 @@ function restrict() {
     }
 
     try{
-      console.log( "Req.Headers.Authorization:", req.headers.authorization )
-      console.log( "process.env.JWT_SECRET:", process.env.JWT_SECRET )
       const token = req.headers.authorization
       if ( !token ) {
-        return res.status( 401 ).json( "Prob1" )
+        return res.status( 401 ).json( authErr )
       }
 
       jwt.verify( token, process.env.JWT_SECRET, ( err, decoded ) => {
+        console.log( err )
         if ( err ) {
-          return res.status( 401 ).json( "Prob2" )
+          return res.status( 401 ).json( authErr )
         }
         req.token = decoded
         next()
