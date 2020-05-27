@@ -1,54 +1,64 @@
-const router = require( 'express' ).Router()
-const bcrypt = require( "bcryptjs" )
-const jwt = require( "jsonwebtoken" )
-const Users = require( "../users/users-model" )
+const router = require( 'express' ).Router();
+const bcrypt = require( "bcryptjs" );
+const jwt = require( "jsonwebtoken" );
+const secrets = require('../api/secrets.js');
+const Users = require( "../users/users-model" );
 
-router.post( "/register", async ( req, res, next ) => {
-	try {
-		const { username } = req.body
-		const user = await Users.findBy( { username } ).first()
+router.post( "/register", ( req, res ) => {
+	let user = req.body;
+	const rounds = process.env.HASH_ROUNDS || 8;
+	const hash = bcrypt.hashSync(user.password, rounds);
+	user.password = hash;
 
-		if ( user ) {
-			return res.status( 409 ).json( {
-				message: "Username is already taken",
-			} )
-		}
+	Users.add(user)
+	.then(saved => {
+		console.log('shit', saved);
+		res.status(201).json(saved);
+	})
+	.catch(error => {
+		console.log(error);
+		res.status(500).json({
+			message: error.message
+		});
+	});
+});
 
-		res.status( 201 ).json( await Users.add( req.body ) )
-	} catch( err ) {
-		next( err )
-	}
-})
+router.post( "/login", ( req, res ) => {
+	let { username, password } = req.body;
 
-router.post( "/login", async ( req, res, next ) => {
-	const authErr = {
-		message: "Invalid Credentials",
-	}
+	Users.findBy({ username })
+	.then(([user]) => {
+		if(user && bcrypt.compareSync(password, user.password)){
+			const token = generateToken(user);
+			res.status(200).json({
+				message: 'Login Successful', token
+			});
+		} else {
+			res.status(401).json({
+				message: error.message
+			});
+		};
+	})
+	.catch(error => {
+		console.log(error)
+		res.status(500).json({
+			message: 'Error logging in user'
+		});
+	});
+});
 
-	try {
-		const user = await Users.findBy( { username: req.body.username } ).first()
-		if ( !user ) {
-			return res.status( 401 ).json( authErr )
-		}
-
-		const passwordValid = await bcrypt.compare( req.body.password, user.password )
-		if ( !passwordValid ) {
-			return res.status( 401 ).json( authErr )
-		}
-
-		const tokenPayload = {
-			userId: user.id
-		}
+function generateToken(user){
+	const payload = {
+		userId: user.id,
+		username: user.username,
+		password: user.password
+	};
+	const secret = secrets.jwtSecret;
+	const options = {
+		expiresIn: '1w'
+	};
+	return jwt.sign(payload, secret, options);
+}
 
 
-		res.json( {
-			token: jwt.sign( tokenPayload, process.env.JWT_SECRET ),
-			message: `Welcome ${ user.username }!`
-		} )
-	} catch( err ) {
-		next( err )
-	}
-} )
-
-
-module.exports = router
+module.exports = router;

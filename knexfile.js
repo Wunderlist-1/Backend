@@ -38,21 +38,19 @@ module.exports = {
   },
   
   production: {
-		client: "sqlite3",
-		connection: {
-			filename: "./data/todos-dev.db3",
-		},
+		client: "pg",
+		connection: process.env.DATABASE_URL || 'http://localhost:5432/wunderlist',
 		useNullAsDefault: true,
+		pool: {
+			min: 2,
+			max: 20,
+		},
 		migrations: {
 			directory: "./data/migrations",
 		},
 		seeds: {
 			directory: "./data/seeds",
-    },
-    pool: {
-      afterCreate: (conn, done) => {
-          conn.run("PRAGMA foreign_keys = ON", done)
-      }
-	  }
+    	},
+    
   }
 }
